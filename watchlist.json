@@ -1,1 +1,62 @@
-{"asOf":null,"stocks":[]}
+{
+  "asOf": "2026-11-16",
+  "stocks": [
+    {
+      "rank": 1,
+      "ticker": "SLGL",
+      "symbol": "NASDAQ:SLGL",
+      "name": "Sol-Gel Technologies",
+      "catalyst": "Phase 3 · SGT-610",
+      "catalystDate": "Late Nov 2026",
+      "catalystSource": "https://ir.sol-gel.com/node/9531",
+      "marketCap": 180460000,
+      "quoteDate": "2026-11-13",
+      "cash": 45700000
+    },
+    {
+      "rank": 2,
+      "ticker": "EPRX",
+      "symbol": "NASDAQ:EPRX",
+      "name": "Eupraxia Pharmaceuticals",
+      "catalyst": "Phase 2b interim · EP-104GI RESOLVE",
+      "catalystDate": "Dec 2026",
+      "catalystSource": "https://eupraxiapharma.gcs-web.com/news-releases/news-release-details/eupraxia-pharmaceuticals-reports-third-quarter-2026-financial",
+      "marketCap": 538750000,
+      "quoteDate": "2026-11-13"
+    },
+    {
+      "rank": 3,
+      "ticker": "XENE",
+      "symbol": "NASDAQ:XENE",
+      "name": "Xenon Pharmaceuticals",
+      "catalyst": "Phase 3 · Azetukalner X-NOVA2",
+      "catalystDate": "Dec 2026",
+      "catalystSource": "https://investor.xenon-pharma.com/node/14866",
+      "marketCap": 3980000000,
+      "quoteDate": "2026-11-13",
+      "cash": 1200000000
+    },
+    {
+      "rank": 4,
+      "ticker": "KOD",
+      "symbol": "NASDAQ:KOD",
+      "name": "Kodiak Sciences",
+      "catalyst": "Phase 3 · KSI-101 PEAK",
+      "catalystDate": "Dec 2026",
+      "catalystSource": "https://ir.kodiak.com/news-releases/news-release-details/kodiak-sciences-announces-recent-business-highlights-and-third-1/",
+      "marketCap": 7260000000,
+      "quoteDate": "2026-11-13"
+    },
+    {
+      "rank": 5,
+      "ticker": "RZLT",
+      "symbol": "NASDAQ:RZLT",
+      "name": "Rezolute",
+      "catalyst": "Phase 3 final data · Ersodetug upLIFT",
+      "catalystDate": "Mid-Dec 2026",
+      "catalystSource": "https://ir.rezolutebio.com/news/detail/389/rezolute-announces-positive-results-from-the-phase-3-uplift-study-in-tumor-hyperinsulinism",
+      "marketCap": 353500000,
+      "quoteDate": "2026-11-13"
+    }
+  ]
+}
