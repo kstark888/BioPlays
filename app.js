@@ -33,34 +33,173 @@ const money = n => new Intl.NumberFormat("en-US", {
 const multiple = n => `${n.toFixed(1)}×`;
 const tier = (n, good, fair) => n >= good ? "good" : n >= fair ? "fair" : "poor";
 
-function metric(parent, label, value, color, note) {
-  const card = element("div", "", parent, "metric");
-  element("small", label, card);
-  element("b", value, card, color);
-  const names = { good: "Strong", fair: "Watch", poor: "Weak" };
-  element("small", [names[color], note].filter(Boolean).join(" · "), card);
+
+const metricDefinitions = {
+  dividendYield: ["Dividend yield", percent],
+  pe: ["Trailing P/E", n => n > 0 ? multiple(n) : "N/M"],
+  revenue: ["Revenue", money],
+  netIncome: ["Net income to company", money],
+  revenueGrowth: ["YoY revenue growth", percent, (n, s) => s.revenueComparable !== false ? tier(n, 15, 0) : ""],
+  cash: ["Cash", money],
+  currentDebt: ["Current debt", money],
+  totalDebt: ["Total debt", money],
+  cashToDebt: ["Cash / total debt", multiple, n => tier(n, 2, 1)],
+  runwayMonths: ["Cash runway", n => n.toFixed(1) + " mo", n => tier(n, 18, 12)],
+  marketCap: ["Market cap", money]
+};
+const defaultPins = ["dividendYield", "pe", "revenue", "netIncome", "revenueGrowth", "cashToDebt", "runwayMonths", "marketCap"];
+const metricPinsKey = "bioplays.metric-pins.v1";
+let metricPins = {};
+try { metricPins = JSON.parse(localStorage.getItem(metricPinsKey)) || {}; } catch {}
+
+function percent(n) { return n.toFixed(1) + "%"; }
+
+function sparkline(parent, points, format) {
+  const data = Array.isArray(points) ? points.filter(p => p && typeof p.date === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(p.date) && Number.isFinite(p.value))
+    .sort((a, b) => a.date.localeCompare(b.date)) : [];
+  const unique = [...new Map(data.map(p => [p.date, p])).values()];
+  if (unique.length < 2) {
+    element("small", "No history", parent);
+    return;
+  }
+  const canvas = element("canvas", "", parent);
+  canvas.width = 320;
+  canvas.height = 78;
+  canvas.style.cssText = "display:block;width:100%;max-width:160px;height:39px";
+  const label = unique[0].date + " " + format(unique[0].value) + " to " +
+    unique.at(-1).date + " " + format(unique.at(-1).value);
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", label);
+  canvas.title = label;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const values = unique.map(p => p.value);
+  let low = Math.min(...values, 0);
+  let high = Math.max(...values, 0);
+  if (low === high) high = low + 1;
+  const y = n => 72 - (n - low) * 66 / (high - low);
+  const x = i => 2 + i * 316 / (values.length - 1);
+  const baseline = y(0);
+  const trace = () => values.forEach((v, i) => i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)));
+  for (const [top, bottom, fill] of [[0, baseline, "#79e3bd66"], [baseline, 78, "#ff929677"]]) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, top, 320, bottom - top);
+    ctx.clip();
+    ctx.beginPath();
+    trace();
+    ctx.lineTo(x(values.length - 1), baseline);
+    ctx.lineTo(x(0), baseline);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.moveTo(0, baseline);
+  ctx.lineTo(320, baseline);
+  ctx.strokeStyle = "#54707f";
+  ctx.stroke();
+  ctx.beginPath();
+  trace();
+  ctx.strokeStyle = "#d7e9ee";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
 }
 
-function showMetrics(parent, s) {
-  const grid = element("div", "", parent, "metrics");
-  const has = Number.isFinite;
-  const pe = s.pe;
-  const growth = s.revenueGrowth;
-  const runway = s.runwayMonths;
-  const debt = s.totalDebt;
-  const cash = s.cash;
-  const ratio = has(cash) && debt > 0 ? cash / debt : null;
-  const growthComparable = has(growth) && s.revenueComparable !== false;
-  metric(grid, "Trailing P/E", has(pe) ? pe > 0 ? multiple(pe) : "N/M" : "—", "", "Context dependent");
-  metric(grid, "YoY revenue growth", has(growth) ? `${growth.toFixed(1)}%` : "—",
-    growthComparable ? tier(growth, 15, 0) : "", "Strong ≥15% · Watch ≥0%");
-  metric(grid, "Current debt", has(s.currentDebt) ? money(s.currentDebt) : "—", "", "Due within 12 months");
-  metric(grid, "Total debt", has(debt) ? money(debt) : "—", "", "Short- and long-term");
-  metric(grid, "Cash / total debt", debt === 0 ? "No debt" : has(ratio) ? multiple(ratio) : "—",
-    debt === 0 ? "good" : has(ratio) ? tier(ratio, 2, 1) : "", "Strong ≥2× · Watch ≥1×");
-  metric(grid, "Cash runway", has(runway) ? `${runway.toFixed(1)} mo` : "—",
-    has(runway) ? tier(runway, 18, 12) : "", "Strong ≥18 mo · Watch ≥12 mo");
-  metric(grid, "Market cap", has(s.marketCap) ? money(s.marketCap) : "—", "", s.quoteDate || "Snapshot");
+function showMetrics(parent, stock) {
+  const panel = element("section", "", parent);
+  panel.setAttribute("aria-label", "Data Explorer");
+  panel.style.cssText = "background:#0c1820;border:1px solid #263a44;border-radius:12px;padding:16px;margin:16px 0";
+  const heading = element("h3", "Data Explorer", panel);
+  heading.style.margin = "0 0 12px";
+  const query = element("input", "", panel);
+  query.type = "search";
+  query.placeholder = "Search for metrics to pin…";
+  query.setAttribute("aria-label", "Search metrics for " + stock.ticker);
+  query.style.cssText = "width:100%;margin-bottom:10px";
+  const edit = element("button", "Edit pins", panel);
+  edit.type = "button";
+  edit.setAttribute("aria-expanded", "false");
+  const picker = element("div", "", panel);
+  picker.hidden = true;
+  const table = element("table", "", panel);
+  table.style.cssText = "width:100%;table-layout:fixed;text-align:left;border-collapse:collapse;margin-top:10px;overflow-wrap:anywhere";
+  const header = element("tr", "", element("thead", "", table));
+  for (const [label, width] of [["Metric name", "46%"], ["Value", "24%"], ["Trend", "30%"]]) {
+    const cell = element("th", label, header);
+    cell.scope = "col";
+    cell.style.cssText = "padding:8px 6px;width:" + width;
+  }
+  const rows = element("tbody", "", table);
+  const message = element("small", "", panel);
+  message.setAttribute("role", "status");
+  const saved = metricPins[stock.symbol];
+  let pins = Array.isArray(saved) ? saved.filter(key => Object.hasOwn(metricDefinitions, key)) : [...defaultPins];
+
+  function drawRows() {
+    rows.replaceChildren();
+    message.textContent = pins.length ? "" : "Pin a metric to add it to the table.";
+    const values = { ...stock, cashToDebt: Number.isFinite(stock.cash) && stock.totalDebt > 0 ? stock.cash / stock.totalDebt : null };
+    for (const key of pins) {
+      const [label, format, color] = metricDefinitions[key];
+      const value = values[key];
+      const noDebt = key === "cashToDebt" && stock.totalDebt === 0;
+      const row = element("tr", "", rows);
+      row.style.borderTop = "1px solid #263a44";
+      const name = element("th", label, row);
+      name.scope = "row";
+      name.style.fontWeight = "normal";
+      const grade = noDebt ? "good" : Number.isFinite(value) ? color?.(value, stock) : "";
+      const cell = element("td", noDebt ? "No debt" : Number.isFinite(value) ? format(value) : "—", row, grade);
+      if (grade) {
+        const note = element("small", { good: "Strong", fair: "Watch", poor: "Weak" }[grade], cell);
+        note.style.display = "block";
+      }
+      if (key === "marketCap" && stock.quoteDate) {
+        element("small", stock.quoteDate, cell).style.display = "block";
+      }
+      const trend = element("td", "", row);
+      sparkline(trend, stock.metricHistory?.[key], format);
+      for (const item of [name, cell, trend]) item.style.padding = "10px 6px";
+    }
+  }
+
+  function drawPicker() {
+    picker.replaceChildren();
+    const filter = query.value.trim().toLowerCase();
+    picker.hidden = !filter && edit.getAttribute("aria-expanded") !== "true";
+    if (picker.hidden) return;
+    let matches = 0;
+    for (const [key, [label]] of Object.entries(metricDefinitions)) {
+      if (!label.toLowerCase().includes(filter)) continue;
+      matches++;
+      const option = element("label", "", picker);
+      option.style.cssText = "display:inline-flex;align-items:center;gap:6px;margin:8px 12px 8px 0";
+      const box = element("input", "", option);
+      box.type = "checkbox";
+      box.checked = pins.includes(key);
+      option.append(document.createTextNode(label));
+      box.addEventListener("change", () => {
+        pins = box.checked ? [...pins, key] : pins.filter(pin => pin !== key);
+        metricPins[stock.symbol] = pins;
+        try { localStorage.setItem(metricPinsKey, JSON.stringify(metricPins)); } catch {}
+        drawRows();
+      });
+    }
+    if (!matches) element("small", "No matching metrics.", picker);
+  }
+
+  query.addEventListener("input", drawPicker);
+  edit.addEventListener("click", () => {
+    const open = edit.getAttribute("aria-expanded") !== "true";
+    edit.setAttribute("aria-expanded", String(open));
+    edit.textContent = open ? "Done" : "Edit pins";
+    if (!open) query.value = "";
+    drawPicker();
+  });
+  drawRows();
 }
 
 function addChart(parent, symbol) {
