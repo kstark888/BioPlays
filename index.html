@@ -1,9 +1,248 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Biotech Catalyst Watchlist</title>
-<style>
-:root{color-scheme:dark;font:16px system-ui;background:#0a1218;color:#e8f1f4}*{box-sizing:border-box}body{margin:0}header{border-bottom:1px solid #263a44;padding:0 max(5vw,24px);color:#79e3bd;font-weight:700}.nav{display:flex;align-items:center;gap:28px;min-height:72px;max-width:1180px;margin:auto}.brand{color:#79e3bd;text-decoration:none;font-size:1.05rem}.nav-links{display:flex;gap:8px}.nav-link{color:#a4bac6;text-decoration:none;padding:10px 12px;border-radius:8px}.nav-link:hover,.nav-link.active{background:#13232c;color:#e8f1f4}.nav-link.active{box-shadow:inset 0 -2px #79e3bd}main{max-width:1180px;margin:auto;padding:56px 24px}h1{font-size:clamp(2rem,5vw,4rem);letter-spacing:-.065em;margin:0}p,small{color:#a4bac6;line-height:1.6}.toolbar{display:flex;gap:12px;flex-wrap:wrap;margin:32px 0 16px}input,button{font:inherit;border:1px solid #324a56;background:#13232c;color:inherit;border-radius:8px;padding:10px 14px}button,summary{cursor:pointer}:focus-visible{outline:2px solid #79e3bd;outline-offset:3px}details,.empty{border:1px solid #263a44;border-radius:12px;margin:12px 0;background:#101e27}summary,.empty{padding:22px}summary strong{color:#79e3bd;margin-right:12px}.body{padding:0 22px 22px}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:16px 0}.metric{background:#0a151d;border-radius:8px;padding:12px}.metric b{display:block;margin:4px 0}.good{color:#79e3bd}.fair{color:#f6cf73}.poor{color:#ff9296}a{color:#83d3f7}.chart{height:420px;margin-top:16px}footer{margin-top:24px}.source{display:block;margin:10px 0}.investor-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:32px}.investor-card{border:1px solid #263a44;border-radius:12px;background:#101e27;padding:22px}.investor-card h2{margin:0 0 8px;color:#79e3bd;font-size:1.15rem}.investor-card p{margin:0}
-</style></head><body><header><nav class="nav" aria-label="Main navigation"><a class="brand" href="./index.html">Biotech Research</a><div class="nav-links"><a class="nav-link active" href="./index.html" aria-current="page">Home</a><a class="nav-link" href="./institutional.html">Institutial Investing</a></div></nav></header><main>
-<h1>Catalyst watchlist</h1><p>Clinical milestones, price charts, and financial context for the agent’s ranked biotech candidates.</p>
-<div class="toolbar"><input id="search" type="search" aria-label="Filter by ticker, name, or catalyst" placeholder="Filter by ticker, name, or catalyst"><button id="import">Load watchlist JSON</button><input id="file" type="file" accept=".json,application/json" hidden></div>
-<p id="status" role="status"></p><section id="list" aria-label="Ranked stocks"></section>
-<footer><small>Colors indicate screening thresholds. Gray means unavailable or requires context. Fundamentals reflect the snapshot and TradingView prices can be delayed by exchange.</small></footer></main><script src="./app.js"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Biotech Catalyst Watchlist</title>
+    <style>
+      /* Page-wide colors and typography. */
+      :root {
+        color-scheme: dark;
+        font: 16px system-ui;
+        background: #0a1218;
+        color: #e8f1f4;
+        /* Change this one value to adjust both desktop side gutters. */
+        --page-gutter: 80px;
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      /* Top navigation. */
+      header { border-bottom: 1px solid #263a44; padding: 0; color: #79e3bd; font-weight: 700; }
+      .nav { display: flex; align-items: center; gap: 28px; width: calc(100% - var(--page-gutter) - var(--page-gutter)); min-height: 68px; margin: auto; }
+      .brand { color: #79e3bd; text-decoration: none; font-size: 1.05rem; }
+      .nav-links { display: flex; gap: 8px; }
+      .nav-link { color: #a4bac6; text-decoration: none; padding: 10px 12px; border-radius: 8px; }
+      .nav-link:hover, .nav-link.active { background: #13232c; color: #e8f1f4; }
+      .nav-link.active { box-shadow: inset 0 -2px #79e3bd; }
+      /* Main page layout and toolbar. */
+      main { width: calc(100% - var(--page-gutter) - var(--page-gutter)); margin: auto; padding: 44px 0 64px; }
+      h1 { font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.055em; margin: 0; }
+      .toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin: 32px 0 16px; }
+      input, button { font: inherit; border: 1px solid #324a56; background: #13232c; color: inherit; border-radius: 8px; padding: 10px 14px; }
+      button { cursor: pointer; }
+      :focus-visible { outline: 2px solid #79e3bd; outline-offset: 3px; }
+
+      .empty { margin: 12px 0; padding: 22px; border: 1px solid #263a44; border-radius: 12px; background: #101e27; }
+      /* Metric badges and chart styles. */
+      .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin: 16px 0; }
+      .metric { background: #0a151d; border-radius: 8px; padding: 12px; }
+      .metric b { display: block; margin: 4px 0; }
+      .good { color: #79e3bd; }
+      .fair { color: #f6cf73; }
+      .poor { color: #ff9296; }
+      a { color: #83d3f7; }
+      .chart { height: 420px; margin-top: 16px; }
+      footer { margin-top: 24px; }
+      .source { display: block; margin: 10px 0; }
+      .investor-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 32px; }
+      .investor-card { border: 1px solid #263a44; border-radius: 12px; background: #101e27; padding: 22px; }
+      .investor-card h2 { margin: 0 0 8px; color: #79e3bd; font-size: 1.15rem; }
+      .investor-card p { margin: 0; }
+
+      .stock-list {
+        width: 100%;
+        overflow: visible;
+        margin-top: 28px;
+        border: 1px solid #294652;
+        border-radius: 18px;
+        background: #0b1820;
+        color: #dce9ee;
+        box-shadow: 0 22px 60px #0005, inset 0 1px #ffffff08;
+      }
+
+      .stock-list-header,
+      .stock-summary {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 18px;
+        align-items: start;
+        width: 100%;
+      }
+
+      .stock-list-header {
+        padding: 20px;
+        padding-top: 32px;
+        border-radius: 18px 18px 0 0;
+        background: linear-gradient(135deg, #132b35, #0d1d26);
+        color: #96abb5;
+        font-size: .92rem;
+        letter-spacing: .02em;
+      }
+
+      .column-heading {
+        position: relative;
+        min-width: 0;
+        line-height: 1.35;
+      }
+
+      .rank-heading {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .stock-row {
+        display: block;
+        margin: 0;
+        border: 0;
+        border-top: 1px solid #203943;
+        border-radius: 0;
+        background: #0d1b24;
+        transition: background .18s ease, box-shadow .18s ease;
+      }
+
+      .stock-row:last-child { border-radius: 0 0 18px 18px; }
+      .stock-row:hover { position: relative; background: #10242d; box-shadow: inset 3px 0 #79e3bd; }
+
+      .stock-summary {
+        position: relative;
+        padding: 24px 20px;
+        list-style: none;
+        list-style-type: none;
+      }
+
+      .stock-summary > div { min-width: 0; }
+      .stock-rank > strong { color: #79e3bd; font-size: 1.15rem; }
+      .stock-company { list-style: none; }
+      .stock-company a { display: inline-block; color: #79e3bd; font-size: 1.05rem; font-weight: 700; }
+      .company-name,
+      .share-price,
+      .stock-drug em,
+      .event-label,
+      .stock-date p { display: block; }
+      .company-name { margin-bottom: 10px; color: #edf5f7; font-size: 1.05rem; line-height: 1.35; }
+      .company-ticker { text-decoration: underline; text-underline-offset: 3px; }
+      .share-price { margin-top: 12px; color: #b7c8cf; font-size: 1rem; }
+      .stock-market strong,
+      .stock-date > strong { color: #edf5f7; font-size: 1.2rem; }
+      .stock-drug strong { display: block; color: #e4eef2; font-size: 1.1rem; }
+      .stock-drug em { margin-top: 10px; color: #9fb3bc; font-size: 1.05rem; }
+      .stage-pill { display: inline-block; padding: 5px 14px; border: 1px solid; border-radius: 9px; font-size: 1rem; }
+      .stage-pill.phase-1 { border-color: #b63c5e; background: #351521; color: #ff91aa; }
+      .stage-pill.phase-2 { border-color: #a56b1d; background: #302313; color: #f7ca70; }
+      .stage-pill.phase-3 { border-color: #714fd2; background: #231b40; color: #bda8ff; }
+      .stage-pill.fda { border-color: #2c9071; background: #102d25; color: #79e3bd; }
+      .stage-pill.milestone { border-color: #496572; background: #172a34; color: #b7c9d1; }
+      .event-label { margin-top: 12px; color: #a6b9c2; }
+      .event-progress { display: block; height: 8px; margin-top: 14px; overflow: hidden; border-radius: 99px; background: #203640; }
+      .event-progress-fill { display: block; height: 100%; border-radius: inherit; background: #f4aa1c; }
+      .phase-1 + .event-label + .event-progress .event-progress-fill { background: #ef476f; }
+      .phase-3 + .event-label + .event-progress .event-progress-fill { background: #8147eb; }
+      .fda + .event-label + .event-progress .event-progress-fill { background: #23a77c; }
+      .stock-date > strong { display: block; }
+      .stock-date p { margin: 10px 0 0; color: #a6b9c2; }
+      .stock-date .source { margin-top: 8px; }
+
+      .info-trigger,
+      .score-trigger {
+        display: inline-grid;
+        place-items: center;
+        border: 1px solid #3c5b68;
+        background: #102630;
+        color: #79e3bd;
+        cursor: pointer;
+      }
+
+      .info-trigger {
+        width: 22px;
+        min-width: 22px;
+        height: 22px;
+        min-height: 22px;
+        flex: 0 0 22px;
+        padding: 0;
+        border-radius: 50%;
+        font: 700 .78rem/22px system-ui;
+      }
+
+      .stock-score { position: relative; }
+      .score-trigger {
+        min-width: 82px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-weight: 800;
+      }
+
+      .score-trigger:hover,
+      .score-trigger[aria-expanded="true"],
+      .info-trigger:hover,
+      .info-trigger[aria-expanded="true"] { border-color: #79e3bd; background: #173943; }
+
+      .table-popover {
+        position: absolute;
+        z-index: 20;
+        top: calc(100% + 9px);
+        right: 0;
+        width: min(300px, 78vw);
+        padding: 16px;
+        border: 1px solid #3b5965;
+        border-radius: 12px;
+        background: #10212a;
+        color: #dbe8ec;
+        box-shadow: 0 16px 40px #0008;
+        font-size: .9rem;
+        line-height: 1.45;
+      }
+
+      .rank-heading .table-popover { right: auto; left: 0; }
+      .table-popover[hidden] { display: none; }
+      .table-popover p { margin: 0; color: #dbe8ec; }
+      .popover-title { display: block; margin-bottom: 9px; color: #f1f7f9; }
+      .score-factor { display: block; padding: 6px 0; border-bottom: 1px solid #29424d; }
+      .table-popover small { display: block; margin-top: 12px; color: #91a8b2; }
+      .mobile-column-label { display: none; }
+
+      @media (max-width: 1050px) {
+        .stock-list-header { display: none; }
+        .stock-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 20px; }
+        .stock-company,
+        .stock-date { grid-column: span 2; }
+        .mobile-column-label { display: block; margin-bottom: 7px; color: #839aa5; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+        .stock-score .table-popover { right: auto; left: 0; }
+      }
+
+      @media (max-width: 560px) {
+        :root { --page-gutter: 16px; }
+        .stock-summary { display: block; }
+        .stock-summary > div { margin-bottom: 24px; }
+        .stock-summary > div:last-child { margin-bottom: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Site navigation -->
+    <header>
+      <nav class="nav" aria-label="Main navigation">
+        <a class="brand" href="./index.html">BioPlays Research</a>
+        <div class="nav-links">
+          <a class="nav-link active" href="./index.html" aria-current="page">Home</a>
+          <a class="nav-link" href="./institutional.html">Institutial Investing</a>
+        </div>
+      </nav>
+    </header>
+    <!-- Watchlist controls and dynamically rendered stock cards -->
+    <main>
+      <h1>Catalyst watchlist</h1>
+      <p>Clinical milestones, price charts, and financial context for the agent’s ranked biotech candidates.</p>
+      <div class="toolbar">
+        <input id="search" type="search" aria-label="Filter by ticker, name, or catalyst" placeholder="Filter by ticker, name, or catalyst">
+      </div>
+      <p id="status" role="status"></p>
+      <section id="list" aria-label="Ranked stocks"></section>
+      <footer>
+        <small>Colors indicate screening thresholds. Gray means unavailable or requires context. Fundamentals reflect the snapshot and TradingView prices can be delayed by exchange.</small>
+      </footer>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

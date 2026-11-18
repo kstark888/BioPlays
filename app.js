@@ -1,11 +1,12 @@
 "use strict";
 
+// Cache references to the page controls that JavaScript updates.
 const search = document.getElementById("search");
 const list = document.getElementById("list");
 const status = document.getElementById("status");
-const file = document.getElementById("file");
 let snapshot = { stocks: [] };
 
+// Create an element, set its optional text and CSS class, then add it to a parent.
 function element(tag, text, parent, className) {
   const node = document.createElement(tag);
   node.textContent = text;
@@ -14,6 +15,7 @@ function element(tag, text, parent, className) {
   return node;
 }
 
+// Add external source links only when the URL is valid and HTTPS.
 function sourceLink(parent, href, label) {
   try {
     const url = new URL(href);
@@ -27,13 +29,75 @@ function sourceLink(parent, href, label) {
   }
 }
 
+// Shared number formatters used in metric values and chart labels.
 const money = n => new Intl.NumberFormat("en-US", {
   style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 2
+}).format(n);
+const price = n => new Intl.NumberFormat("en-US", {
+  style: "currency", currency: "USD", maximumFractionDigits: 2
 }).format(n);
 const multiple = n => `${n.toFixed(1)}×`;
 const tier = (n, good, fair) => n >= good ? "good" : n >= fair ? "fair" : "poor";
 
+function stageDetails(stock) {
+  const catalyst = stock.catalyst || "";
+  const match = catalyst.match(/\b(Phase\s+\d(?:[ab])?|Preclinical|FDA)\b/i);
+  const stage = match ? match[1].replace(/phase/i, "Phase") : "Milestone";
+  const event = catalyst.replace(match?.[0] || "", "").replace(/^\s*[·:-]\s*/, "").trim() || "Catalyst event";
+  const stageNumber = Number(match?.[1]?.match(/\d/)?.[0]);
+  const progress = stage.toLowerCase().startsWith("phase") ? stageNumber * 25 : stage === "FDA" ? 100 : 15;
+  const tone = stage.toLowerCase().startsWith("phase") ? `phase-${stageNumber}` : stage.toLowerCase() === "fda" ? "fda" : "milestone";
+  return { stage, event, progress: Math.min(progress, 100), tone };
+}
 
+function displayDate(value) {
+  if (!value) return "Date TBD";
+  const parsed = new Date(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(parsed.valueOf())
+    ? parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })
+    : value;
+}
+
+function addPopover(parent, triggerText, label, buildContent, triggerClass = "info-trigger") {
+  const trigger = element("button", triggerText, parent, triggerClass);
+  trigger.type = "button";
+  trigger.setAttribute("aria-label", label);
+  trigger.setAttribute("aria-expanded", "false");
+  const popover = element("div", "", parent, "table-popover");
+  popover.hidden = true;
+  popover.setAttribute("role", "dialog");
+  popover.setAttribute("aria-label", label);
+  buildContent(popover);
+
+  function close() {
+    popover.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  }
+
+  trigger.addEventListener("click", event => {
+    event.stopPropagation();
+    const open = popover.hidden;
+    document.querySelectorAll(".table-popover:not([hidden])").forEach(node => {
+      node.hidden = true;
+      node.parentElement?.querySelector("[aria-expanded='true']")?.setAttribute("aria-expanded", "false");
+    });
+    popover.hidden = !open;
+    trigger.setAttribute("aria-expanded", String(open));
+  });
+  parent.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      close();
+      trigger.focus();
+    }
+  });
+  document.addEventListener("click", event => {
+    if (!parent.contains(event.target)) close();
+  });
+  return trigger;
+}
+
+
+// Metric labels, formatting functions, and optional color thresholds.
 const metricDefinitions = {
   dividendYield: ["Dividend yield", percent],
   pe: ["Trailing P/E", n => n > 0 ? multiple(n) : "N/M"],
@@ -210,7 +274,7 @@ function addChart(parent, symbol) {
   script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
   script.async = true;
   script.textContent = JSON.stringify({
-    symbol, autosize: true, interval: "D", timezone: "America/New_York",
+    symbol, autosize: true, interval: "D", timezone: "America/New_York", style: "2",
     theme: "dark", locale: "en", allow_symbol_change: false,
     hide_side_toolbar: true, calendar: false, support_host: "https://www.tradingview.com"
   });
@@ -228,19 +292,69 @@ function render() {
     element("div", snapshot.stocks.length ? "No matching stocks." : "No agent snapshot loaded. Load a watchlist JSON to see ranked stocks.", list, "empty");
     return;
   }
+
+  const table = element("div", "", list, "stock-list");
+  const header = element("div", "", table, "stock-list-header");
+  const rankHeading = element("div", "", header, "column-heading rank-heading");
+  element("strong", "Rank", rankHeading);
+  addPopover(rankHeading, "i", "About ranking", popover => {
+    element("p", "Ranking based on BioPlays scoring", popover);
+  });
+  for (const label of ["Company", "Market Cap", "Drug & Indication", "Stage & Event", "Catalyst Date", "Probability Score"]) {
+    const heading = element("div", "", header, "column-heading");
+    element("strong", label, heading);
+  }
+
   for (const s of rows) {
-    const row = element("details", "", list);
-    const title = element("summary", "", row);
-    element("strong", [s.rank && `#${s.rank}`, s.ticker].filter(Boolean).join(" "), title);
-    title.append(document.createTextNode([s.name, s.catalyst, s.catalystDate].filter(Boolean).join(" · ")));
-    const body = element("div", "", row, "body");
-    showMetrics(body, s);
-    if (s.filingDate) element("small", `Financial period ending ${s.filingDate}`, body);
-    sourceLink(body, s.source, "Financial filing");
-    sourceLink(body, s.catalystSource, "Catalyst source");
-    row.addEventListener("toggle", () => {
-      if (row.open && !body.querySelector(".chart")) addChart(body, s.symbol);
-    });
+    const row = element("article", "", table, "stock-row");
+    const title = element("div", "", row, "stock-summary");
+    const rank = element("div", "", title, "stock-rank");
+    element("span", "Rank", rank, "mobile-column-label");
+    element("strong", Number.isFinite(s.rank) ? `#${s.rank}` : "—", rank);
+
+    const company = element("div", "", title, "stock-company");
+    element("strong", s.name || "Company name unavailable", company, "company-name");
+    const companyLink = element("a", s.ticker || "Ticker unavailable", company, "company-ticker");
+    companyLink.href = `./stock.html?ticker=${encodeURIComponent(s.ticker || "")}`;
+    companyLink.setAttribute("aria-label", `View ${s.name || s.ticker || "company"} profile`);
+
+    const market = element("div", "", title, "stock-market");
+    element("strong", Number.isFinite(s.marketCap) ? money(s.marketCap) : "N/A", market);
+    if (Number.isFinite(s.price)) element("span", price(s.price), market, "share-price");
+
+    const drug = element("div", "", title, "stock-drug");
+    element("strong", s.drug || s.drugName || "Drug not provided", drug);
+    element("em", s.indication || "Indication not provided", drug);
+
+    const details = stageDetails(s);
+    const stage = element("div", "", title, "stock-stage");
+    element("strong", details.stage, stage, `stage-pill ${details.tone}`);
+    element("span", details.event, stage, "event-label");
+    const progress = element("span", "", stage, "event-progress");
+    const progressFill = element("span", "", progress, "event-progress-fill");
+    progressFill.style.width = `${details.progress}%`;
+
+    const date = element("div", "", title, "stock-date");
+    element("strong", displayDate(s.catalystDate), date);
+    if (s.catalystNote) element("p", s.catalystNote, date);
+    sourceLink(date, s.catalystSource, "View source");
+
+    const scoreCell = element("div", "", title, "stock-score");
+    element("span", "Probability Score", scoreCell, "mobile-column-label");
+    const score = Number.isFinite(s.probabilityScore) ? s.probabilityScore : Number.isFinite(s.score) ? s.score : null;
+    addPopover(scoreCell, score === null ? "—/100" : `${Math.round(score)}/100`, "BioPlays score breakdown", popover => {
+      element("strong", "Score includes", popover, "popover-title");
+      for (const item of [
+        "Clinical evidence",
+        "Valuation and asymmetry",
+        "Catalyst materiality and timing confidence",
+        "Financial condition and dilution risk",
+        "Verified specialist ownership"
+      ]) {
+        element("span", item, popover, "score-factor");
+      }
+      element("small", "This is a comparative research score, not a calibrated probability of clinical or regulatory success.", popover);
+    }, "score-trigger");
   }
 }
 
@@ -254,15 +368,8 @@ function load(data) {
 }
 
 search.addEventListener("input", render);
-document.getElementById("import").addEventListener("click", () => file.click());
-file.addEventListener("change", async () => {
-  if (!file.files.length) return;
-  try { load(JSON.parse(await file.files[0].text())); }
-  catch (error) { status.textContent = error.message; }
-  file.value = "";
-});
 render();
-fetch("./watchlist.json", { cache: "no-cache" })
+fetch(`./watchlist.json?v=${Date.now()}`, { cache: "no-store" })
   .then(response => { if (!response.ok) throw Error(); return response.json(); })
   .then(data => { if (!snapshot.asOf && data.asOf) load(data); })
   .catch(() => { if (!snapshot.asOf) status.textContent = "The published snapshot could not be loaded."; });

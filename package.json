@@ -1,0 +1,11 @@
+{
+  "name": "bioplays-watchlist",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "enrich:sec": "node scripts/enrich-watchlist.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

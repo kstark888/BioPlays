@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stock profile · Biotech Research</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font: 16px system-ui, sans-serif;
+        background: #071018;
+        color: #edf4f7;
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; background: radial-gradient(circle at 15% 0, #102731 0, #071018 38rem); }
+      a { color: #79e3bd; }
+      :focus-visible { outline: 2px solid #79e3bd; outline-offset: 3px; }
+      header { border-bottom: 1px solid #263a44; background: #08141cdd; backdrop-filter: blur(12px); }
+      .nav { display: flex; align-items: center; gap: 28px; min-height: 72px; max-width: 1220px; margin: auto; padding: 0 24px; }
+      .brand { color: #79e3bd; text-decoration: none; font-weight: 800; }
+      .nav a:not(.brand) { color: #a8bbc5; text-decoration: none; }
+      main { max-width: 1220px; margin: auto; padding: 36px 24px 72px; }
+      .back { display: inline-block; margin-bottom: 20px; color: #9db0ba; text-decoration: none; }
+      .panel { border: 1px solid #263a44; border-radius: 20px; background: #0d1a23e8; box-shadow: 0 18px 50px #0005; }
+      .hero { padding: clamp(24px, 4vw, 46px); }
+      .identity { display: flex; align-items: center; gap: 20px; }
+      .company-mark { display: grid; place-items: center; width: 76px; height: 76px; flex: 0 0 auto; border: 1px solid #36515d; border-radius: 22px; background: linear-gradient(145deg, #79e3bd, #4c8bc5); color: #071018; font-size: 1.5rem; font-weight: 900; }
+      h1 { margin: 0; font-size: clamp(2rem, 5vw, 4.25rem); letter-spacing: -.055em; }
+      .symbol-line { display: flex; gap: 10px; align-items: center; margin-top: 8px; color: #a8bbc5; font-size: 1.05rem; }
+      .ticker { color: #79e3bd; font-weight: 800; }
+      .hero-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(110px, .55fr)); gap: 22px; align-items: end; margin-top: 46px; }
+      .headline-value { font-size: clamp(2rem, 5vw, 3.6rem); font-weight: 800; }
+      .stat strong { display: block; color: #edf4f7; font-size: 1.25rem; }
+      .stat span, .eyebrow { display: block; margin-top: 7px; color: #78909c; font-size: .75rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+      .content-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.35fr); gap: 22px; margin-top: 22px; }
+      .section { padding: 28px; }
+      h2 { margin: 0 0 18px; font-size: 1.25rem; }
+      .description { margin: 0; color: #afc0c8; line-height: 1.75; }
+      .catalyst { margin-top: 24px; padding: 20px; border: 1px solid #375563; border-radius: 14px; background: #0a151c; }
+      .catalyst strong { display: block; margin: 7px 0; font-size: 1.15rem; }
+      .catalyst-date { color: #79e3bd; }
+      .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric { display: flex; justify-content: space-between; gap: 18px; padding: 17px 0; border-bottom: 1px solid #20343e; }
+      .metric:nth-last-child(-n + 2) { border-bottom: 0; }
+      .metric:nth-child(odd) { padding-right: 20px; }
+      .metric:nth-child(even) { padding-left: 20px; border-left: 1px solid #20343e; }
+      .metric span { color: #8ea3ad; }
+      .metric strong { text-align: right; }
+      .chart-panel { margin-top: 22px; padding: 18px; }
+      .chart {
+        width: 100%;
+        height: 400px !important;
+        min-height: 400px !important;
+        max-height: 400px !important;
+        overflow: hidden;
+        border-radius: 14px;
+      }
+      .chart > div,
+      .chart iframe { width: 100% !important; height: 400px !important; }
+      .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+      .links a { padding: 10px 14px; border: 1px solid #34515e; border-radius: 10px; background: #10232d; text-decoration: none; }
+      .error { padding: 40px; text-align: center; }
+
+      @media (max-width: 900px) {
+        .hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .hero-price { grid-column: 1 / -1; }
+        .content-grid { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 560px) {
+        .identity { align-items: flex-start; }
+        .company-mark { width: 58px; height: 58px; border-radius: 16px; }
+        .hero-grid, .metrics { grid-template-columns: 1fr; }
+        .hero-price { grid-column: auto; }
+        .metric, .metric:nth-child(odd), .metric:nth-child(even) { padding: 14px 0; border-left: 0; border-bottom: 1px solid #20343e; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav class="nav" aria-label="Main navigation">
+        <a class="brand" href="./index.html">Biotech Research</a>
+        <a href="./index.html">Watchlist</a>
+        <a href="./institutional.html">Institutial Investing</a>
+      </nav>
+    </header>
+    <main>
+      <a class="back" href="./index.html">← Back to watchlist</a>
+      <div id="profile" aria-live="polite"></div>
+    </main>
+    <script src="./stock.js"></script>
+  </body>
+</html>
